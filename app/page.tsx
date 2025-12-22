@@ -2,11 +2,53 @@
 
 import { useState } from 'react'
 
+interface ParseResult {
+  date: string
+  title: string
+  content: string
+}
+
 export default function Home() {
   const [url, setUrl] = useState('')
   const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
   const [activeButton, setActiveButton] = useState<string | null>(null)
+
+  const handleParse = async () => {
+    if (!url.trim()) {
+      alert('Пожалуйста, введите URL статьи')
+      return
+    }
+
+    setLoading(true)
+    setActiveButton('parse')
+    setResult('')
+
+    try {
+      const response = await fetch('/api/parse', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Ошибка при парсинге статьи')
+      }
+
+      const data: ParseResult = await response.json()
+      
+      // Форматируем JSON для красивого отображения
+      const formattedJson = JSON.stringify(data, null, 2)
+      setResult(formattedJson)
+    } catch (error) {
+      setResult(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleAction = async (action: string) => {
     if (!url.trim()) {
@@ -46,6 +88,21 @@ export default function Home() {
               placeholder="https://example.com/article"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
             />
+          </div>
+
+          {/* Кнопка парсинга */}
+          <div className="mb-6">
+            <button
+              onClick={handleParse}
+              disabled={loading}
+              className={`w-full px-6 py-3 rounded-lg font-medium transition-all ${
+                activeButton === 'parse'
+                  ? 'bg-green-600 text-white shadow-lg'
+                  : 'bg-green-500 text-white hover:bg-green-600 hover:shadow-md'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {loading && activeButton === 'parse' ? 'Парсинг...' : 'Парсить статью'}
+            </button>
           </div>
 
           {/* Кнопки действий */}
@@ -97,7 +154,9 @@ export default function Home() {
                 </div>
               ) : result ? (
                 <div className="prose max-w-none">
-                  <p className="text-gray-700 whitespace-pre-wrap">{result}</p>
+                  <pre className="bg-white p-4 rounded border border-gray-300 overflow-auto text-sm text-gray-800 whitespace-pre-wrap font-mono">
+                    {result}
+                  </pre>
                 </div>
               ) : (
                 <p className="text-gray-400 text-center">Результат появится здесь после выбора действия...</p>
