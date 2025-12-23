@@ -13,6 +13,7 @@ export default function Home() {
   const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
   const [activeButton, setActiveButton] = useState<string | null>(null)
+  const [parsedData, setParsedData] = useState<ParseResult | null>(null)
 
   const handleParse = async () => {
     if (!url.trim()) {
@@ -40,9 +41,48 @@ export default function Home() {
 
       const data: ParseResult = await response.json()
       
+      // Сохраняем распарсенные данные для дальнейшего использования
+      setParsedData(data)
+      
       // Форматируем JSON для красивого отображения
       const formattedJson = JSON.stringify(data, null, 2)
       setResult(formattedJson)
+    } catch (error) {
+      setResult(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleTranslate = async () => {
+    if (!parsedData || !parsedData.content) {
+      alert('Сначала распарсите статью, чтобы получить контент для перевода')
+      return
+    }
+
+    setLoading(true)
+    setActiveButton('translate')
+    setResult('')
+
+    try {
+      // Переводим весь контент статьи
+      const textToTranslate = `Заголовок: ${parsedData.title}\n\nДата: ${parsedData.date}\n\nКонтент:\n${parsedData.content}`
+
+      const response = await fetch('/api/translate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: textToTranslate }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Ошибка при переводе статьи')
+      }
+
+      const data = await response.json()
+      setResult(data.translation)
     } catch (error) {
       setResult(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
     } finally {
@@ -90,18 +130,29 @@ export default function Home() {
             />
           </div>
 
-          {/* Кнопка парсинга */}
-          <div className="mb-6">
+          {/* Кнопки парсинга и перевода */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <button
               onClick={handleParse}
               disabled={loading}
-              className={`w-full px-6 py-3 rounded-lg font-medium transition-all ${
+              className={`px-6 py-3 rounded-lg font-medium transition-all ${
                 activeButton === 'parse'
                   ? 'bg-green-600 text-white shadow-lg'
                   : 'bg-green-500 text-white hover:bg-green-600 hover:shadow-md'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {loading && activeButton === 'parse' ? 'Парсинг...' : 'Парсить статью'}
+            </button>
+            <button
+              onClick={handleTranslate}
+              disabled={loading || !parsedData}
+              className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                activeButton === 'translate'
+                  ? 'bg-purple-600 text-white shadow-lg'
+                  : 'bg-purple-500 text-white hover:bg-purple-600 hover:shadow-md'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {loading && activeButton === 'translate' ? 'Перевод...' : 'Перевести'}
             </button>
           </div>
 
