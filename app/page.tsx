@@ -218,9 +218,14 @@ export default function Home() {
                 </div>
               ) : result ? (
                 <div className="prose max-w-none">
-                  <pre className="bg-white p-4 rounded border border-gray-300 overflow-auto text-sm text-gray-800 whitespace-pre-wrap font-mono">
-                    {result}
-                  </pre>
+                  <div 
+                    className="bg-white p-4 rounded border border-gray-300 overflow-auto text-sm text-gray-800 whitespace-pre-wrap font-mono"
+                    dangerouslySetInnerHTML={{
+                      __html: result
+                        .replace(/(https?:\/\/[^\s\)]+)/g, '<span style="color: #dc2626; font-weight: bold; text-decoration: underline;">$1</span>')
+                        .replace(/\n/g, '<br>')
+                    }}
+                  />
                 </div>
               ) : (
                 <p className="text-gray-400 text-center">Результат появится здесь после выбора действия...</p>
