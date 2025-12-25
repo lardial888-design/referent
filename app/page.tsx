@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 interface ParseResult {
   date: string
@@ -16,6 +17,7 @@ export default function Home() {
   const [parsedData, setParsedData] = useState<ParseResult | null>(null)
   const [translatedText, setTranslatedText] = useState<string>('')
   const [statusMessage, setStatusMessage] = useState<string>('')
+  const [error, setError] = useState<string | null>(null)
 
   const handleParseAndTranslate = async () => {
     if (!url.trim()) {
@@ -27,6 +29,7 @@ export default function Home() {
     setResult('')
     setParsedData(null)
     setStatusMessage('Загружаю статью...')
+    setError(null)
 
     try {
       // Шаг 1: Парсинг статьи
@@ -40,8 +43,13 @@ export default function Home() {
       })
 
       if (!parseResponse.ok) {
-        const error = await parseResponse.json()
-        throw new Error(error.error || 'Ошибка при парсинге статьи')
+        const errorData = await parseResponse.json()
+        const errorMessage = errorData.error || 'Не удалось загрузить статью по этой ссылке.'
+        setError(errorMessage)
+        setStatusMessage('')
+        setLoading(false)
+        setActiveButton(null)
+        return
       }
 
       const parsedData: ParseResult = await parseResponse.json()
@@ -63,18 +71,23 @@ export default function Home() {
       })
 
       if (!translateResponse.ok) {
-        const error = await translateResponse.json()
-        throw new Error(error.error || 'Ошибка при переводе статьи')
+        const errorData = await translateResponse.json()
+        const errorMessage = errorData.error || 'Ошибка при переводе статьи.'
+        setError(errorMessage)
+        setStatusMessage('')
+        setLoading(false)
+        setActiveButton(null)
+        return
       }
 
       const translateData = await translateResponse.json()
       setTranslatedText(translateData.translation)
       setResult(translateData.translation)
       setStatusMessage('')
+      setError(null)
     } catch (error) {
-      setResult(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
+      setError('Произошла непредвиденная ошибка. Попробуйте еще раз.')
       setStatusMessage('')
-    } finally {
       setLoading(false)
       setActiveButton(null)
     }
@@ -147,17 +160,21 @@ export default function Home() {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Ошибка при анализе статьи')
+        const errorData = await response.json()
+        const errorMessage = errorData.error || 'Ошибка при анализе статьи.'
+        setError(errorMessage)
+        setStatusMessage('')
+        setLoading(false)
+        return
       }
 
       const data = await response.json()
       setResult(data.result)
       setStatusMessage('')
+      setError(null)
     } catch (error) {
-      setResult(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
+      setError('Произошла непредвиденная ошибка. Попробуйте еще раз.')
       setStatusMessage('')
-    } finally {
       setLoading(false)
     }
   }
@@ -235,6 +252,14 @@ export default function Home() {
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-700">{statusMessage}</p>
             </div>
+          )}
+
+          {/* Блок ошибок */}
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTitle>Ошибка</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
           {/* Блок для отображения результата */}

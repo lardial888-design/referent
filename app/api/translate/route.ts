@@ -59,24 +59,26 @@ export async function POST(request: NextRequest) {
         error: errorData
       })
       
-      // Более информативное сообщение об ошибке
-      let errorMessage = `Ошибка API OpenRouter: ${response.status}`
-      if (errorData.error?.message) {
-        errorMessage += ` - ${errorData.error.message}`
-      } else if (errorData.message) {
-        errorMessage += ` - ${errorData.message}`
-      }
+      // Дружественные сообщения об ошибках на русском
+      let errorMessage = 'Ошибка при обращении к API перевода. Попробуйте еще раз.'
       
-      // Специальная обработка для различных ошибок
       if (response.status === 401) {
-        errorMessage = `Неверный или недействительный API ключ. Проверьте ключ на https://openrouter.ai/settings/keys и убедитесь, что он активен.`
-      } else if (response.status === 403 && errorMessage.includes('limit exceeded')) {
-        errorMessage = `Превышен лимит использования API ключа. Проверьте баланс и лимиты на https://openrouter.ai/settings/keys`
+        errorMessage = 'Неверный или недействительный API ключ. Проверьте ключ на https://openrouter.ai/settings/keys и убедитесь, что он активен.'
+      } else if (response.status === 403) {
+        if (errorData.error?.message?.includes('limit') || errorData.message?.includes('limit')) {
+          errorMessage = 'Превышен лимит использования API ключа. Проверьте баланс и лимиты на https://openrouter.ai/settings/keys'
+        } else {
+          errorMessage = 'Доступ запрещен. Проверьте настройки API ключа.'
+        }
+      } else if (response.status === 429) {
+        errorMessage = 'Слишком много запросов. Подождите немного и попробуйте снова.'
+      } else if (response.status >= 500) {
+        errorMessage = 'Ошибка сервера OpenRouter. Попробуйте позже.'
       }
       
       return NextResponse.json(
-        { error: errorMessage, details: errorData },
-        { status: response.status }
+        { error: errorMessage },
+        { status: 400 }
       )
     }
 
