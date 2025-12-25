@@ -19,6 +19,7 @@ export default function Home() {
   const [statusMessage, setStatusMessage] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false) // Защита от двойного вызова
+  const [resultTitle, setResultTitle] = useState<string>('') // Название последнего действия
   const resultRef = useRef<HTMLDivElement>(null) // Референс для блока результатов
 
   const handleParseAndTranslate = async () => {
@@ -146,6 +147,7 @@ export default function Home() {
       
       setTranslatedText(translateData.translation)
       setResult(translateData.translation)
+      setResultTitle('Перевод')
       setStatusMessage('')
       setError(null)
       setLoading(false)
@@ -211,6 +213,7 @@ export default function Home() {
     setLoading(true)
     setActiveButton(action)
     setResult('')
+    setResultTitle('') // Очищаем заголовок во время загрузки
     
     // Устанавливаем статус в зависимости от действия
     const statusMessages: Record<string, string> = {
@@ -300,6 +303,7 @@ export default function Home() {
       }
       
       setResult(data.result)
+      setResultTitle(action) // Устанавливаем название кнопки как заголовок результата
       setStatusMessage('')
       setError(null)
       setLoading(false)
@@ -333,6 +337,7 @@ export default function Home() {
     setLoading(false)
     setActiveButton(null)
     setIsProcessing(false)
+    setResultTitle('') // Очищаем заголовок результата
   }
 
   const handleCopy = async () => {
@@ -347,11 +352,11 @@ export default function Home() {
       if (copyButton) {
         const originalText = copyButton.textContent
         copyButton.textContent = 'Скопировано!'
-        copyButton.classList.add('bg-green-500')
+        copyButton.classList.add('bg-green-500', 'text-white')
         setTimeout(() => {
           if (copyButton) {
             copyButton.textContent = originalText
-            copyButton.classList.remove('bg-green-500')
+            copyButton.classList.remove('bg-green-500', 'text-white')
           }
         }, 2000)
       }
@@ -385,7 +390,7 @@ export default function Home() {
               </label>
               <button
                 onClick={handleClear}
-                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors w-full sm:w-auto"
+                className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors w-full sm:w-auto"
                 title="Очистить все поля и результаты"
               >
                 Очистить
@@ -465,18 +470,15 @@ export default function Home() {
           <div ref={resultRef} className="border-t border-gray-200 pt-4 sm:pt-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-3 sm:mb-4">
               <h2 className="text-lg sm:text-xl font-semibold text-gray-900 break-words">
-                Результат:
+                Результат{resultTitle ? `: ${resultTitle}` : ''}
                 {!url.trim() ? '' : 
-                 activeButton === 'О чем статья?' ? ' о чём статья' :
-                 activeButton === 'Тезисы' ? ' тезисы' :
-                 activeButton === 'Пост для Telegram' ? ' пост для телеграмм' :
-                 !parsedData ? <span className="text-red-500"> нажмите ввод</span> : null}
+                 !parsedData && !resultTitle ? <span className="text-red-500">: нажмите ввод</span> : null}
               </h2>
               {result && (
                 <button
                   data-copy-button
                   onClick={handleCopy}
-                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium text-white bg-purple-500 hover:bg-purple-600 rounded-lg transition-colors w-full sm:w-auto"
+                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors w-full sm:w-auto"
                   title="Копировать результат в буфер обмена"
                 >
                   Копировать
