@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 interface ParseResult {
@@ -19,6 +19,7 @@ export default function Home() {
   const [statusMessage, setStatusMessage] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false) // Защита от двойного вызова
+  const resultRef = useRef<HTMLDivElement>(null) // Референс для блока результатов
 
   const handleParseAndTranslate = async () => {
     if (!url.trim()) {
@@ -150,6 +151,11 @@ export default function Home() {
       setLoading(false)
       setActiveButton(null)
       console.log('Translation completed successfully')
+      
+      // Автоматическая прокрутка к результатам
+      setTimeout(() => {
+        resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
     } catch (error: any) {
       let errorMessage = 'Произошла непредвиденная ошибка. Попробуйте еще раз.'
       
@@ -286,6 +292,11 @@ export default function Home() {
       setLoading(false)
       setActiveButton(null)
       console.log('Analysis completed successfully')
+      
+      // Автоматическая прокрутка к результатам
+      setTimeout(() => {
+        resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
     } catch (error: any) {
       let errorMessage = 'Произошла непредвиденная ошибка. Попробуйте еще раз.'
       
@@ -299,6 +310,52 @@ export default function Home() {
     }
   }
 
+  const handleClear = () => {
+    setUrl('')
+    setResult('')
+    setParsedData(null)
+    setTranslatedText('')
+    setStatusMessage('')
+    setError(null)
+    setLoading(false)
+    setActiveButton(null)
+    setIsProcessing(false)
+  }
+
+  const handleCopy = async () => {
+    if (!result) {
+      return
+    }
+    
+    try {
+      await navigator.clipboard.writeText(result)
+      // Временная обратная связь на кнопке
+      const copyButton = document.querySelector('[data-copy-button]') as HTMLElement
+      if (copyButton) {
+        const originalText = copyButton.textContent
+        copyButton.textContent = 'Скопировано!'
+        copyButton.classList.add('bg-green-500')
+        setTimeout(() => {
+          if (copyButton) {
+            copyButton.textContent = originalText
+            copyButton.classList.remove('bg-green-500')
+          }
+        }, 2000)
+      }
+    } catch (err) {
+      console.error('Ошибка при копировании:', err)
+      // Fallback для старых браузеров
+      const textArea = document.createElement('textarea')
+      textArea.value = result
+      textArea.style.position = 'fixed'
+      textArea.style.opacity = '0'
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
@@ -309,9 +366,18 @@ export default function Home() {
 
           {/* Поле ввода URL */}
           <div className="mb-6">
-            <label htmlFor="article-url" className="block text-sm font-medium text-gray-700 mb-2">
-              URL англоязычной статьи
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="article-url" className="block text-sm font-medium text-gray-700">
+                URL англоязычной статьи
+              </label>
+              <button
+                onClick={handleClear}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                title="Очистить все поля и результаты"
+              >
+                Очистить
+              </button>
+            </div>
             <input
               id="article-url"
               type="url"
@@ -383,15 +449,27 @@ export default function Home() {
           )}
 
           {/* Блок для отображения результата */}
-          <div className="border-t border-gray-200 pt-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Результат:
-              {!url.trim() ? '' : 
-               activeButton === 'О чем статья?' ? ' о чём статья' :
-               activeButton === 'Тезисы' ? ' тезисы' :
-               activeButton === 'Пост для Telegram' ? ' пост для телеграмм' :
-               !parsedData ? ' нажмите ввод' : ''}
-            </h2>
+          <div ref={resultRef} className="border-t border-gray-200 pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Результат:
+                {!url.trim() ? '' : 
+                 activeButton === 'О чем статья?' ? ' о чём статья' :
+                 activeButton === 'Тезисы' ? ' тезисы' :
+                 activeButton === 'Пост для Telegram' ? ' пост для телеграмм' :
+                 !parsedData ? ' нажмите ввод' : ''}
+              </h2>
+              {result && (
+                <button
+                  data-copy-button
+                  onClick={handleCopy}
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-500 hover:bg-indigo-600 rounded-lg transition-colors"
+                  title="Копировать результат в буфер обмена"
+                >
+                  Копировать
+                </button>
+              )}
+            </div>
             <div className="bg-gray-50 rounded-lg p-6 min-h-[200px] border border-gray-200">
               {loading ? (
                 <div className="flex items-center justify-center h-48">
