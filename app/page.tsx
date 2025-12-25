@@ -183,15 +183,28 @@ export default function Home() {
     }
   }
 
-  const handleUrlBlur = () => {
-    if (url.trim() && !isProcessing) {
+  const handleUrlBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    // Проверяем, что фокус не перешел на кнопку
+    const relatedTarget = e.relatedTarget as HTMLElement
+    if (relatedTarget && (relatedTarget.tagName === 'BUTTON' || relatedTarget.closest('button'))) {
+      return // Не запускаем парсинг, если фокус перешел на кнопку
+    }
+    
+    // Запускаем парсинг только если статья еще не распарсена
+    if (url.trim() && !isProcessing && !parsedData) {
       handleParseAndTranslate()
     }
   }
 
   const handleAction = async (action: string) => {
+    // Если статья еще не распарсена, не выполняем действие
     if (!parsedData || !parsedData.content) {
-      alert('Сначала распарсите статью, чтобы получить контент для анализа')
+      alert('Сначала введите URL статьи и дождитесь завершения парсинга и перевода')
+      return
+    }
+    
+    // Если идет обработка, не выполняем действие
+    if (isProcessing) {
       return
     }
 
@@ -457,13 +470,13 @@ export default function Home() {
                  activeButton === 'О чем статья?' ? ' о чём статья' :
                  activeButton === 'Тезисы' ? ' тезисы' :
                  activeButton === 'Пост для Telegram' ? ' пост для телеграмм' :
-                 !parsedData ? ' нажмите ввод' : ''}
+                 !parsedData ? <span className="text-red-500"> нажмите ввод</span> : null}
               </h2>
               {result && (
                 <button
                   data-copy-button
                   onClick={handleCopy}
-                  className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-indigo-500 hover:bg-indigo-600 rounded-lg transition-colors w-full sm:w-auto"
+                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium text-white bg-purple-500 hover:bg-purple-600 rounded-lg transition-colors w-full sm:w-auto"
                   title="Копировать результат в буфер обмена"
                 >
                   Копировать
