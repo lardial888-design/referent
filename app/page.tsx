@@ -18,12 +18,20 @@ export default function Home() {
   const [translatedText, setTranslatedText] = useState<string>('')
   const [statusMessage, setStatusMessage] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
+  const [isProcessing, setIsProcessing] = useState(false) // Защита от двойного вызова
 
   const handleParseAndTranslate = async () => {
     if (!url.trim()) {
       return
     }
 
+    // Защита от двойного вызова
+    if (isProcessing) {
+      console.log('Translation already in progress, skipping duplicate call')
+      return
+    }
+
+    setIsProcessing(true)
     setLoading(true)
     setActiveButton('parse')
     setResult('')
@@ -34,13 +42,33 @@ export default function Home() {
     try {
       // Шаг 1: Парсинг статьи
       setStatusMessage('Парсинг статьи...')
-      const parseResponse = await fetch('/api/parse', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url }),
-      })
+      const parseController = new AbortController()
+      const parseTimeout = setTimeout(() => {
+        parseController.abort()
+      }, 30000) // 30 секунд таймаут
+
+      let parseResponse
+      try {
+        parseResponse = await fetch('/api/parse', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url }),
+          signal: parseController.signal,
+        })
+        clearTimeout(parseTimeout)
+      } catch (fetchError: any) {
+        clearTimeout(parseTimeout)
+        if (fetchError.name === 'AbortError') {
+          setError('Превышено время ожидания загрузки статьи (30 секунд). Попробуйте еще раз.')
+          setStatusMessage('')
+          setLoading(false)
+          setActiveButton(null)
+          return
+        }
+        throw fetchError
+      }
 
       if (!parseResponse.ok) {
         const errorData = await parseResponse.json()
@@ -62,13 +90,35 @@ export default function Home() {
       setStatusMessage('Перевожу на русский...')
       const textToTranslate = `Заголовок: ${parsedData.title}\n\nДата: ${parsedData.date}\n\nКонтент:\n${parsedData.content}`
 
-      const translateResponse = await fetch('/api/translate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: textToTranslate }),
-      })
+      const translateController = new AbortController()
+      const translateTimeout = setTimeout(() => {
+        translateController.abort()
+      }, 30000) // 30 секунд таймаут
+
+      let translateResponse
+      try {
+        console.log('Starting translation request, text length:', textToTranslate.length)
+        translateResponse = await fetch('/api/translate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ text: textToTranslate }),
+          signal: translateController.signal,
+        })
+        clearTimeout(translateTimeout)
+        console.log('Translation response received, status:', translateResponse.status)
+      } catch (fetchError: any) {
+        clearTimeout(translateTimeout)
+        if (fetchError.name === 'AbortError') {
+          setError('Превышено время ожидания перевода (30 секунд). Попробуйте еще раз.')
+          setStatusMessage('')
+          setLoading(false)
+          setActiveButton(null)
+          return
+        }
+        throw fetchError
+      }
 
       if (!translateResponse.ok) {
         const errorData = await translateResponse.json()
@@ -80,28 +130,55 @@ export default function Home() {
         return
       }
 
+      console.log('Parsing translation response...')
       const translateData = await translateResponse.json()
+      console.log('Translation data received:', translateData ? 'OK' : 'NULL', translateData.translation ? `Length: ${translateData.translation.length}` : 'No translation field')
+      
+      if (!translateData || !translateData.translation) {
+        console.error('Invalid translation response:', translateData)
+        setError('Получен некорректный ответ от сервера перевода.')
+        setStatusMessage('')
+        setLoading(false)
+        setActiveButton(null)
+        return
+      }
+      
       setTranslatedText(translateData.translation)
       setResult(translateData.translation)
       setStatusMessage('')
       setError(null)
-    } catch (error) {
-      setError('Произошла непредвиденная ошибка. Попробуйте еще раз.')
+      setLoading(false)
+      setActiveButton(null)
+      console.log('Translation completed successfully')
+    } catch (error: any) {
+      let errorMessage = 'Произошла непредвиденная ошибка. Попробуйте еще раз.'
+      
+      if (error.name === 'AbortError') {
+        errorMessage = 'Превышено время ожидания. Попробуйте еще раз или проверьте подключение к интернету.'
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      setError(errorMessage)
       setStatusMessage('')
       setLoading(false)
       setActiveButton(null)
+    } finally {
+      setIsProcessing(false)
     }
   }
 
   const handleUrlKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      handleParseAndTranslate()
+      if (!isProcessing) {
+        handleParseAndTranslate()
+      }
     }
   }
 
   const handleUrlBlur = () => {
-    if (url.trim()) {
+    if (url.trim() && !isProcessing) {
       handleParseAndTranslate()
     }
   }
@@ -147,17 +224,39 @@ export default function Home() {
         textToAnalyze = `Заголовок: ${parsedData.title}\n\nДата: ${parsedData.date}\n\nКонтент:\n${parsedData.content}`
       }
 
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          text: textToAnalyze,
-          action: apiAction,
-          sourceUrl: apiAction === 'telegram' ? url : undefined
-        }),
-      })
+      const analyzeController = new AbortController()
+      const analyzeTimeout = setTimeout(() => {
+        analyzeController.abort()
+      }, 30000) // 30 секунд таймаут
+
+      let response
+      try {
+        console.log('Starting analysis request, action:', apiAction, 'text length:', textToAnalyze.length)
+        response = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            text: textToAnalyze,
+            action: apiAction,
+            sourceUrl: apiAction === 'telegram' ? url : undefined
+          }),
+          signal: analyzeController.signal,
+        })
+        clearTimeout(analyzeTimeout)
+        console.log('Analysis response received, status:', response.status)
+      } catch (fetchError: any) {
+        clearTimeout(analyzeTimeout)
+        if (fetchError.name === 'AbortError') {
+          setError('Превышено время ожидания анализа (30 секунд). Попробуйте еще раз.')
+          setStatusMessage('')
+          setLoading(false)
+          setActiveButton(null)
+          return
+        }
+        throw fetchError
+      }
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -168,12 +267,33 @@ export default function Home() {
         return
       }
 
+      console.log('Parsing analysis response...')
       const data = await response.json()
+      console.log('Analysis data received:', data ? 'OK' : 'NULL', data.result ? `Length: ${data.result.length}` : 'No result field')
+      
+      if (!data || !data.result) {
+        console.error('Invalid analysis response:', data)
+        setError('Получен некорректный ответ от сервера анализа.')
+        setStatusMessage('')
+        setLoading(false)
+        setActiveButton(null)
+        return
+      }
+      
       setResult(data.result)
       setStatusMessage('')
       setError(null)
-    } catch (error) {
-      setError('Произошла непредвиденная ошибка. Попробуйте еще раз.')
+      setLoading(false)
+      setActiveButton(null)
+      console.log('Analysis completed successfully')
+    } catch (error: any) {
+      let errorMessage = 'Произошла непредвиденная ошибка. Попробуйте еще раз.'
+      
+      if (error.name === 'AbortError') {
+        errorMessage = 'Превышено время ожидания. Попробуйте еще раз или проверьте подключение к интернету.'
+      }
+      
+      setError(errorMessage)
       setStatusMessage('')
       setLoading(false)
     }

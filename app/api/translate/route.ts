@@ -20,31 +20,52 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Запрос к OpenRouter API
+    // Запрос к OpenRouter API с таймаутом
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': appUrl,
-        'X-Title': 'Referent',
-      },
-      body: JSON.stringify({
-        model: 'deepseek/deepseek-chat',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a professional translator. Translate the following text from English to Russian, preserving structure and formatting.',
-          },
-          {
-            role: 'user',
-            content: `Translate to Russian:\n\n${text}`,
-          },
-        ],
-        temperature: 0.3,
-      }),
-    })
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => {
+      console.log('Translation timeout triggered')
+      controller.abort()
+    }, 30000) // 30 секунд таймаут
+
+    let response
+    try {
+      console.log(`Starting translation, text length: ${text.length} chars`)
+      response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': appUrl,
+          'X-Title': 'Referent',
+        },
+        body: JSON.stringify({
+          model: 'deepseek/deepseek-chat',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a professional translator. Translate the following text from English to Russian, preserving structure and formatting.',
+            },
+            {
+              role: 'user',
+              content: `Translate to Russian:\n\n${text}`,
+            },
+          ],
+          temperature: 0.3,
+        }),
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId)
+      if (fetchError.name === 'AbortError') {
+        return NextResponse.json(
+          { error: 'Превышено время ожидания ответа от API. Попробуйте еще раз.' },
+          { status: 408 }
+        )
+      }
+      throw fetchError
+    }
 
     if (!response.ok) {
       let errorData
@@ -91,11 +112,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const translatedText = data.choices[0].message.content
+      const translatedText = data.choices[0].message.content
+      
+      console.log('Translation completed, length:', translatedText?.length || 0)
 
-    return NextResponse.json({
-      translation: translatedText,
-    })
+      return NextResponse.json({
+        translation: translatedText,
+      })
   } catch (error) {
     console.error('Ошибка при переводе:', error)
     return NextResponse.json(
