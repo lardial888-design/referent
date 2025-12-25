@@ -91,8 +91,8 @@ export default function Home() {
   }
 
   const handleAction = async (action: string) => {
-    if (!url.trim()) {
-      alert('Пожалуйста, введите URL статьи')
+    if (!parsedData || !parsedData.content) {
+      alert('Сначала распарсите статью, чтобы получить контент для анализа')
       return
     }
 
@@ -100,11 +100,45 @@ export default function Home() {
     setActiveButton(action)
     setResult('')
 
-    // Имитация запроса к AI (здесь будет реальная логика)
-    setTimeout(() => {
-      setResult(`Результат для действия "${action}" будет здесь...`)
+    try {
+      // Маппинг действий на типы для API
+      const actionMap: Record<string, string> = {
+        'О чем статья?': 'summary',
+        'Тезисы': 'theses',
+        'Пост для Telegram': 'telegram',
+      }
+
+      const apiAction = actionMap[action]
+      if (!apiAction) {
+        throw new Error('Неизвестное действие')
+      }
+
+      // Формируем текст для отправки
+      const textToAnalyze = `Заголовок: ${parsedData.title}\n\nДата: ${parsedData.date}\n\nКонтент:\n${parsedData.content}`
+
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          text: textToAnalyze,
+          action: apiAction
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Ошибка при анализе статьи')
+      }
+
+      const data = await response.json()
+      setResult(data.result)
+    } catch (error) {
+      setResult(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
+    } finally {
       setLoading(false)
-    }, 1000)
+    }
   }
 
   return (
