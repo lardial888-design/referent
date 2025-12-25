@@ -15,18 +15,19 @@ export default function Home() {
   const [activeButton, setActiveButton] = useState<string | null>(null)
   const [parsedData, setParsedData] = useState<ParseResult | null>(null)
 
-  const handleParse = async () => {
+  const handleParseAndTranslate = async () => {
     if (!url.trim()) {
-      alert('Пожалуйста, введите URL статьи')
       return
     }
 
     setLoading(true)
     setActiveButton('parse')
     setResult('')
+    setParsedData(null)
 
     try {
-      const response = await fetch('/api/parse', {
+      // Шаг 1: Парсинг статьи
+      const parseResponse = await fetch('/api/parse', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -34,41 +35,21 @@ export default function Home() {
         body: JSON.stringify({ url }),
       })
 
-      if (!response.ok) {
-        const error = await response.json()
+      if (!parseResponse.ok) {
+        const error = await parseResponse.json()
         throw new Error(error.error || 'Ошибка при парсинге статьи')
       }
 
-      const data: ParseResult = await response.json()
+      const parsedData: ParseResult = await parseResponse.json()
       
-      // Сохраняем распарсенные данные для дальнейшего использования
-      setParsedData(data)
-      
-      // Форматируем JSON для красивого отображения
-      const formattedJson = JSON.stringify(data, null, 2)
-      setResult(formattedJson)
-    } catch (error) {
-      setResult(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
-    } finally {
-      setLoading(false)
-    }
-  }
+      // Сохраняем распарсенные данные
+      setParsedData(parsedData)
 
-  const handleTranslate = async () => {
-    if (!parsedData || !parsedData.content) {
-      alert('Сначала распарсите статью, чтобы получить контент для перевода')
-      return
-    }
-
-    setLoading(true)
-    setActiveButton('translate')
-    setResult('')
-
-    try {
-      // Переводим весь контент статьи
+      // Шаг 2: Автоматический перевод
+      setActiveButton('translate')
       const textToTranslate = `Заголовок: ${parsedData.title}\n\nДата: ${parsedData.date}\n\nКонтент:\n${parsedData.content}`
 
-      const response = await fetch('/api/translate', {
+      const translateResponse = await fetch('/api/translate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -76,17 +57,31 @@ export default function Home() {
         body: JSON.stringify({ text: textToTranslate }),
       })
 
-      if (!response.ok) {
-        const error = await response.json()
+      if (!translateResponse.ok) {
+        const error = await translateResponse.json()
         throw new Error(error.error || 'Ошибка при переводе статьи')
       }
 
-      const data = await response.json()
-      setResult(data.translation)
+      const translateData = await translateResponse.json()
+      setResult(translateData.translation)
     } catch (error) {
       setResult(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
     } finally {
       setLoading(false)
+      setActiveButton(null)
+    }
+  }
+
+  const handleUrlKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleParseAndTranslate()
+    }
+  }
+
+  const handleUrlBlur = () => {
+    if (url.trim()) {
+      handleParseAndTranslate()
     }
   }
 
@@ -159,35 +154,11 @@ export default function Home() {
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/article"
+              onKeyDown={handleUrlKeyDown}
+              onBlur={handleUrlBlur}
+              placeholder="https://example.com/article (нажмите Enter или уйдите из поля для автоматического парсинга и перевода)"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
             />
-          </div>
-
-          {/* Кнопки парсинга и перевода */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-            <button
-              onClick={handleParse}
-              disabled={loading}
-              className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                activeButton === 'parse'
-                  ? 'bg-green-600 text-white shadow-lg'
-                  : 'bg-green-500 text-white hover:bg-green-600 hover:shadow-md'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              {loading && activeButton === 'parse' ? 'Парсинг...' : 'Парсить статью'}
-            </button>
-            <button
-              onClick={handleTranslate}
-              disabled={loading || !parsedData}
-              className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                activeButton === 'translate'
-                  ? 'bg-purple-600 text-white shadow-lg'
-                  : 'bg-purple-500 text-white hover:bg-purple-600 hover:shadow-md'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              {loading && activeButton === 'translate' ? 'Перевод...' : 'Перевести'}
-            </button>
           </div>
 
           {/* Кнопки действий */}
