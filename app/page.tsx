@@ -15,6 +15,7 @@ export default function Home() {
   const [activeButton, setActiveButton] = useState<string | null>(null)
   const [parsedData, setParsedData] = useState<ParseResult | null>(null)
   const [translatedText, setTranslatedText] = useState<string>('')
+  const [statusMessage, setStatusMessage] = useState<string>('')
 
   const handleParseAndTranslate = async () => {
     if (!url.trim()) {
@@ -25,9 +26,11 @@ export default function Home() {
     setActiveButton('parse')
     setResult('')
     setParsedData(null)
+    setStatusMessage('Загружаю статью...')
 
     try {
       // Шаг 1: Парсинг статьи
+      setStatusMessage('Парсинг статьи...')
       const parseResponse = await fetch('/api/parse', {
         method: 'POST',
         headers: {
@@ -48,6 +51,7 @@ export default function Home() {
 
       // Шаг 2: Автоматический перевод
       setActiveButton('translate')
+      setStatusMessage('Перевожу на русский...')
       const textToTranslate = `Заголовок: ${parsedData.title}\n\nДата: ${parsedData.date}\n\nКонтент:\n${parsedData.content}`
 
       const translateResponse = await fetch('/api/translate', {
@@ -66,8 +70,10 @@ export default function Home() {
       const translateData = await translateResponse.json()
       setTranslatedText(translateData.translation)
       setResult(translateData.translation)
+      setStatusMessage('')
     } catch (error) {
       setResult(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
+      setStatusMessage('')
     } finally {
       setLoading(false)
       setActiveButton(null)
@@ -96,6 +102,14 @@ export default function Home() {
     setLoading(true)
     setActiveButton(action)
     setResult('')
+    
+    // Устанавливаем статус в зависимости от действия
+    const statusMessages: Record<string, string> = {
+      'О чем статья?': 'Анализирую содержание статьи...',
+      'Тезисы': 'Извлекаю основные тезисы...',
+      'Пост для Telegram': 'Создаю пост для Telegram...',
+    }
+    setStatusMessage(statusMessages[action] || 'Обрабатываю запрос...')
 
     try {
       // Маппинг действий на типы для API
@@ -139,8 +153,10 @@ export default function Home() {
 
       const data = await response.json()
       setResult(data.result)
+      setStatusMessage('')
     } catch (error) {
       setResult(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
+      setStatusMessage('')
     } finally {
       setLoading(false)
     }
@@ -166,9 +182,10 @@ export default function Home() {
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={handleUrlKeyDown}
               onBlur={handleUrlBlur}
-              placeholder="https://example.com/article (нажмите Enter или уйдите из поля для автоматического парсинга и перевода)"
+              placeholder="Введите URL статьи, например: https://example.com/article"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
             />
+            <p className="mt-2 text-xs text-gray-500">Укажите ссылку на англоязычную статью</p>
           </div>
 
           {/* Кнопки действий */}
@@ -176,6 +193,7 @@ export default function Home() {
             <button
               onClick={() => handleAction('О чем статья?')}
               disabled={loading}
+              title="Получить краткое описание содержания статьи"
               className={`px-6 py-3 rounded-lg font-medium transition-all ${
                 activeButton === 'О чем статья?'
                   ? 'bg-indigo-600 text-white shadow-lg'
@@ -188,6 +206,7 @@ export default function Home() {
             <button
               onClick={() => handleAction('Тезисы')}
               disabled={loading}
+              title="Извлечь основные тезисы и ключевые моменты статьи"
               className={`px-6 py-3 rounded-lg font-medium transition-all ${
                 activeButton === 'Тезисы'
                   ? 'bg-indigo-600 text-white shadow-lg'
@@ -200,6 +219,7 @@ export default function Home() {
             <button
               onClick={() => handleAction('Пост для Telegram')}
               disabled={loading}
+              title="Создать пост для Telegram на основе статьи с эмодзи и хештегами"
               className={`px-6 py-3 rounded-lg font-medium transition-all ${
                 activeButton === 'Пост для Telegram'
                   ? 'bg-indigo-600 text-white shadow-lg'
@@ -209,6 +229,13 @@ export default function Home() {
               {loading && activeButton === 'Пост для Telegram' ? 'Обработка...' : 'Пост для Telegram'}
             </button>
           </div>
+
+          {/* Блок статуса процесса */}
+          {statusMessage && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-700">{statusMessage}</p>
+            </div>
+          )}
 
           {/* Блок для отображения результата */}
           <div className="border-t border-gray-200 pt-6">
