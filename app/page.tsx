@@ -14,6 +14,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [activeButton, setActiveButton] = useState<string | null>(null)
   const [parsedData, setParsedData] = useState<ParseResult | null>(null)
+  const [translatedText, setTranslatedText] = useState<string>('')
 
   const handleParseAndTranslate = async () => {
     if (!url.trim()) {
@@ -63,6 +64,7 @@ export default function Home() {
       }
 
       const translateData = await translateResponse.json()
+      setTranslatedText(translateData.translation)
       setResult(translateData.translation)
     } catch (error) {
       setResult(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
@@ -108,8 +110,15 @@ export default function Home() {
         throw new Error('Неизвестное действие')
       }
 
-      // Формируем текст для отправки
-      const textToAnalyze = `Заголовок: ${parsedData.title}\n\nДата: ${parsedData.date}\n\nКонтент:\n${parsedData.content}`
+      // Для поста Telegram используем переведенный текст, для остальных - оригинальный
+      let textToAnalyze = ''
+      if (apiAction === 'telegram' && translatedText) {
+        // Используем переведенный текст для поста Telegram
+        textToAnalyze = translatedText
+      } else {
+        // Для остальных действий используем оригинальный текст
+        textToAnalyze = `Заголовок: ${parsedData.title}\n\nДата: ${parsedData.date}\n\nКонтент:\n${parsedData.content}`
+      }
 
       const response = await fetch('/api/analyze', {
         method: 'POST',
