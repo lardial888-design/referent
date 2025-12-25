@@ -496,7 +496,7 @@ export default function Home() {
                     className="bg-white p-3 sm:p-4 rounded border border-gray-300 overflow-auto text-xs sm:text-sm text-gray-800 whitespace-pre-wrap break-words"
                     dangerouslySetInnerHTML={{
                       __html: result
-                        .replace(/(https?:\/\/[^\s\)]+)/g, '<span style="color: #dc2626; font-weight: bold; text-decoration: underline; word-break: break-all;">$1</span>')
+                        .replace(/(https?:\/\/[^\s\)]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: #dc2626; font-weight: bold; text-decoration: underline; word-break: break-all; cursor: pointer;">$1</a>')
                         .replace(/\n/g, '<br>')
                     }}
                   />
