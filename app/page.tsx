@@ -118,7 +118,8 @@ export default function Home() {
         },
         body: JSON.stringify({ 
           text: textToAnalyze,
-          action: apiAction
+          action: apiAction,
+          sourceUrl: apiAction === 'telegram' ? url : undefined
         }),
       })
 
