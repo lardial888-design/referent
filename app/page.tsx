@@ -202,7 +202,14 @@ export default function Home() {
 
           {/* Блок для отображения результата */}
           <div className="border-t border-gray-200 pt-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Результат:</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Результат:
+              {!url.trim() ? '' : 
+               activeButton === 'О чем статья?' ? ' о чём статья' :
+               activeButton === 'Тезисы' ? ' тезисы' :
+               activeButton === 'Пост для Telegram' ? ' пост для телеграмм' :
+               !parsedData ? ' нажмите ввод' : ''}
+            </h2>
             <div className="bg-gray-50 rounded-lg p-6 min-h-[200px] border border-gray-200">
               {loading ? (
                 <div className="flex items-center justify-center h-48">
